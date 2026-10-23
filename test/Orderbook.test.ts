@@ -32,7 +32,7 @@ describe("Orderbook", async function () {
       await networkHelpers.loadFixture(deployFixture);
 
     await orderbook.write.createOrder(
-      [tokenA.address, tokenB.address, 100n, 150n],
+      [tokenA.address, tokenB.address, 100n, 150n, 0n],
       { account: alice.account },
     );
 
@@ -49,7 +49,7 @@ describe("Orderbook", async function () {
 
     await viem.assertions.revertWith(
       orderbook.write.createOrder(
-        [tokenA.address, tokenB.address, 1001n, 150n],
+        [tokenA.address, tokenB.address, 1001n, 150n, 0n],
         { account: alice.account },
       ),
       "[createOrder]: Do not have enough balance",
@@ -60,8 +60,15 @@ describe("Orderbook", async function () {
     const { tokenA, tokenB, orderbook } =
       await networkHelpers.loadFixture(deployFixture);
 
+    const latestBlockTimestamp = await networkHelpers.time.latest();
     await orderbook.write.createOrder(
-      [tokenA.address, tokenB.address, 100n, 150n],
+      [
+        tokenA.address,
+        tokenB.address,
+        100n,
+        150n,
+        BigInt(latestBlockTimestamp + 100),
+      ],
       { account: alice.account },
     );
 
@@ -82,8 +89,15 @@ describe("Orderbook", async function () {
     const { tokenA, tokenB, orderbook } =
       await networkHelpers.loadFixture(deployFixture);
 
+    const latestBlockTimestamp = await networkHelpers.time.latest();
     await orderbook.write.createOrder(
-      [tokenA.address, tokenB.address, 100n, 150n],
+      [
+        tokenA.address,
+        tokenB.address,
+        100n,
+        150n,
+        BigInt(latestBlockTimestamp + 100),
+      ],
       {
         account: alice.account,
       },
@@ -99,8 +113,15 @@ describe("Orderbook", async function () {
     const { tokenA, tokenB, orderbook } =
       await networkHelpers.loadFixture(deployFixture);
 
+    const latestBlockTimestamp = await networkHelpers.time.latest();
     await orderbook.write.createOrder(
-      [tokenA.address, tokenB.address, 100n, 150n],
+      [
+        tokenA.address,
+        tokenB.address,
+        100n,
+        150n,
+        BigInt(latestBlockTimestamp + 100),
+      ],
       { account: alice.account },
     );
 
@@ -117,7 +138,7 @@ describe("Orderbook", async function () {
       await networkHelpers.loadFixture(deployFixture);
 
     await orderbook.write.createOrder(
-      [tokenA.address, tokenB.address, 100n, 150n],
+      [tokenA.address, tokenB.address, 100n, 150n, 0n],
       { account: alice.account },
     );
 
@@ -135,13 +156,61 @@ describe("Orderbook", async function () {
       await networkHelpers.loadFixture(deployFixture);
 
     await orderbook.write.createOrder(
-      [tokenA.address, tokenB.address, 100n, 150n],
+      [tokenA.address, tokenB.address, 100n, 150n, 0n],
       { account: alice.account },
     );
 
     await viem.assertions.revertWith(
       orderbook.write.cancelOrder([0n], { account: bob.account }),
       "[cancelOrder]: Only creator can cancel order",
+    );
+  });
+
+  it("should expire an order after the deadline and return tokenA", async () => {
+    const { tokenA, tokenB, orderbook } =
+      await networkHelpers.loadFixture(deployFixture);
+
+    const latestBlockTimestamp = await networkHelpers.time.latest();
+    await orderbook.write.createOrder(
+      [
+        tokenA.address,
+        tokenB.address,
+        100n,
+        150n,
+        BigInt(latestBlockTimestamp + 10),
+      ],
+      { account: alice.account },
+    );
+
+    await networkHelpers.time.increase(20);
+    await orderbook.write.expireOrder([0n], { account: alice.account });
+
+    const aliceBalance = await tokenA.read.balanceOf([alice.account.address]);
+    const orderbookBalance = await tokenA.read.balanceOf([orderbook.address]);
+
+    assert.equal(aliceBalance, 1000n);
+    assert.equal(orderbookBalance, 0n);
+  });
+
+  it("should not allow expiring an order before the deadline", async () => {
+    const { tokenA, tokenB, orderbook } =
+      await networkHelpers.loadFixture(deployFixture);
+
+    const latestBlockTimestamp = await networkHelpers.time.latest();
+    await orderbook.write.createOrder(
+      [
+        tokenA.address,
+        tokenB.address,
+        100n,
+        150n,
+        BigInt(latestBlockTimestamp + 100),
+      ],
+      { account: alice.account },
+    );
+
+    await viem.assertions.revertWith(
+      orderbook.write.expireOrder([0n], { account: alice.account }),
+      "[expireOrder]: Order has not yet expired",
     );
   });
 });
