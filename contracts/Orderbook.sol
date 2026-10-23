@@ -70,7 +70,7 @@ contract Orderbook {
     Order storage order = orders[id];
     require(order.status == OrderStatus.Active, "[resolveOrder]: Order is not active");
     require(order.creator != msg.sender, "[resolveOrder]: Cannot resolve own order");
-    require(order.deadline > block.timestamp, "[resolveOrder]: Order has expired");
+    require(order.deadline == 0 || order.deadline > block.timestamp, "[resolveOrder]: Order has expired");
 
     uint tokenBBalance = IERC20(order.tokenB).balanceOf(msg.sender);
     require(tokenBBalance >= order.amountB, "[resolveOrder]: Do not have enough balance");

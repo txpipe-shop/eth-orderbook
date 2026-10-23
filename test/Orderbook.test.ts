@@ -60,15 +60,8 @@ describe("Orderbook", async function () {
     const { tokenA, tokenB, orderbook } =
       await networkHelpers.loadFixture(deployFixture);
 
-    const latestBlockTimestamp = await networkHelpers.time.latest();
     await orderbook.write.createOrder(
-      [
-        tokenA.address,
-        tokenB.address,
-        100n,
-        150n,
-        BigInt(latestBlockTimestamp + 100),
-      ],
+      [tokenA.address, tokenB.address, 100n, 150n, 0n],
       { account: alice.account },
     );
 
