@@ -97,7 +97,7 @@ contract Orderbook {
     require(id < nextOrderId, "[expireOrder]: Order does not exist");
 
     Order storage order = orders[id];
-    require(order.deadline < block.timestamp, "[expireOrder]: Order has not yet expired");
+    require(order.deadline != 0 && order.deadline < block.timestamp, "[expireOrder]: Order has not yet expired");
     require(order.status == OrderStatus.Active, "[expireOrder]: Order is not active");
     order.status = OrderStatus.Expired;
 
