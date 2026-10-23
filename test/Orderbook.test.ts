@@ -47,12 +47,14 @@ describe("Orderbook", async function () {
     const { tokenA, tokenB, orderbook } =
       await networkHelpers.loadFixture(deployFixture);
 
-    await viem.assertions.revertWith(
+    await viem.assertions.revertWithCustomErrorWithArgs(
       orderbook.write.createOrder(
         [tokenA.address, tokenB.address, 1001n, 150n, 0n],
         { account: alice.account },
       ),
-      "[createOrder]: Do not have enough balance",
+      orderbook,
+      "InsufficientBalance",
+      [1000n, 1001n],
     );
   });
 
@@ -96,9 +98,11 @@ describe("Orderbook", async function () {
       },
     );
 
-    await viem.assertions.revertWith(
+    await viem.assertions.revertWithCustomErrorWithArgs(
       orderbook.write.resolveOrder([0n, 50n], { account: alice.account }),
-      "[resolveOrder]: Cannot resolve own order",
+      orderbook,
+      "CannotResolveOwnOrder",
+      [0n],
     );
   });
 
@@ -120,9 +124,11 @@ describe("Orderbook", async function () {
 
     await orderbook.write.resolveOrder([0n, 100n], { account: bob.account });
 
-    await viem.assertions.revertWith(
+    await viem.assertions.revertWithCustomErrorWithArgs(
       orderbook.write.resolveOrder([0n, 100n], { account: bob.account }),
-      "[resolveOrder]: Order is not active",
+      orderbook,
+      "OrderNotActive",
+      [0n],
     );
   });
 
@@ -153,9 +159,11 @@ describe("Orderbook", async function () {
       { account: alice.account },
     );
 
-    await viem.assertions.revertWith(
+    await viem.assertions.revertWithCustomErrorWithArgs(
       orderbook.write.cancelOrder([0n], { account: bob.account }),
-      "[cancelOrder]: Only creator can cancel order",
+      orderbook,
+      "OnlyCreatorCanCancel",
+      [0n],
     );
   });
 
@@ -201,9 +209,11 @@ describe("Orderbook", async function () {
       { account: alice.account },
     );
 
-    await viem.assertions.revertWith(
+    await viem.assertions.revertWithCustomErrorWithArgs(
       orderbook.write.expireOrder([0n], { account: alice.account }),
-      "[expireOrder]: Order has not yet expired",
+      orderbook,
+      "OrderNotExpired",
+      [0n],
     );
   });
 

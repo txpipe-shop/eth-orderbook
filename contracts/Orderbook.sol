@@ -7,6 +7,31 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 contract Orderbook {
   using SafeERC20 for IERC20;
 
+  /// @notice Thrown when `amountA` or `amountB` is zero.
+  error AmountMustBePositive();
+  /// @notice Thrown when `tokenA` and `tokenB` are the same address.
+  error TokensMustBeDifferent();
+  /// @notice Thrown when a token is the zero address.
+  error TokenIsZeroAddress();
+  /// @notice Thrown when the deadline is in the past and not zero.
+  error DeadlineMustBeInTheFuture();
+  /// @notice Thrown when a caller's balance is below the required amount.
+  error InsufficientBalance(uint256 available, uint256 required);
+  /// @notice Thrown when an order id does not exist.
+  error OrderDoesNotExist(uint256 id);
+  /// @notice Thrown when an order is not in the Active state.
+  error OrderNotActive(uint256 id);
+  /// @notice Thrown when someone other than the creator tries to cancel.
+  error OnlyCreatorCanCancel(uint256 id);
+  /// @notice Thrown when the creator tries to resolve their own order.
+  error CannotResolveOwnOrder(uint256 id);
+  /// @notice Thrown when an order's deadline has passed.
+  error OrderExpired(uint256 id);
+  /// @notice Thrown when an order has not yet reached its deadline.
+  error OrderNotExpired(uint256 id);
+  /// @notice Thrown when the fill amount is zero or exceeds the remaining amount.
+  error InvalidFillAmount(uint256 fillAmountA, uint256 remainingA);
+
   enum OrderStatus { Active, Completed, Cancelled, Expired }
 
   struct Order {
@@ -32,13 +57,13 @@ contract Orderbook {
   function createOrder(
     address tokenA, address tokenB, uint amountA, uint amountB, uint deadline
   ) external {
-    require(amountA > 0 && amountB > 0, "[createOrder]: amountA and amountB should be greater than zero");
-    require(tokenA != tokenB, "[createOrder]: Tokens to swap should be different");
-    require(tokenA != address(0) && tokenB != address(0), "[createOrder]: Token addresses should be different from address zero");
-    require(deadline == 0 || deadline > block.timestamp, "[createOrder]: Deadline must be in the future or zero for no deadline");
+    if (amountA == 0 || amountB == 0) revert AmountMustBePositive();
+    if (tokenA == tokenB) revert TokensMustBeDifferent();
+    if (tokenA == address(0) || tokenB == address(0)) revert TokenIsZeroAddress();
+    if (deadline != 0 && deadline <= block.timestamp) revert DeadlineMustBeInTheFuture();
 
     uint tokenABalance = IERC20(tokenA).balanceOf(msg.sender);
-    require(tokenABalance >= amountA, "[createOrder]: Do not have enough balance");
+    if (tokenABalance < amountA) revert InsufficientBalance(tokenABalance, amountA);
 
     uint orderId = nextOrderId;
     nextOrderId++;
@@ -59,11 +84,11 @@ contract Orderbook {
   }
 
   function cancelOrder(uint id) external {
-    require(id < nextOrderId, "[cancelOrder]: Order does not exist");
+    if (id >= nextOrderId) revert OrderDoesNotExist(id);
 
     Order storage order = orders[id];
-    require(order.creator == msg.sender, "[cancelOrder]: Only creator can cancel order");
-    require(order.status == OrderStatus.Active, "[cancelOrder]: Order is not active");
+    if (order.creator != msg.sender) revert OnlyCreatorCanCancel(id);
+    if (order.status != OrderStatus.Active) revert OrderNotActive(id);
 
     order.status = OrderStatus.Cancelled;
     IERC20(order.tokenA).safeTransfer(msg.sender, order.amountA);
@@ -72,17 +97,17 @@ contract Orderbook {
   }
 
   function resolveOrder(uint id, uint fillAmountA) external {
-    require(id < nextOrderId, "[resolveOrder]: Order does not exist");
+    if (id >= nextOrderId) revert OrderDoesNotExist(id);
 
     Order storage order = orders[id];
-    require(order.status == OrderStatus.Active, "[resolveOrder]: Order is not active");
-    require(order.creator != msg.sender, "[resolveOrder]: Cannot resolve own order");
-    require(order.deadline == 0 || order.deadline >= block.timestamp, "[resolveOrder]: Order has expired");
-    require(fillAmountA > 0 && fillAmountA <= order.remainingA, "[resolveOrder]: Invalid fill amount");
+    if (order.status != OrderStatus.Active) revert OrderNotActive(id);
+    if (order.creator == msg.sender) revert CannotResolveOwnOrder(id);
+    if (order.deadline != 0 && order.deadline < block.timestamp) revert OrderExpired(id);
+    if (fillAmountA == 0 || fillAmountA > order.remainingA) revert InvalidFillAmount(fillAmountA, order.remainingA);
 
     uint fillAmountB = (fillAmountA * order.amountB + order.amountA - 1) / order.amountA;
     uint tokenBBalance = IERC20(order.tokenB).balanceOf(msg.sender);
-    require(tokenBBalance >= fillAmountB, "[resolveOrder]: Do not have enough balance");
+    if (tokenBBalance < fillAmountB) revert InsufficientBalance(tokenBBalance, fillAmountB);
 
     order.remainingA -= fillAmountA;
     if (order.remainingA == 0) {
@@ -96,11 +121,11 @@ contract Orderbook {
   }
 
   function expireOrder(uint id) external {
-    require(id < nextOrderId, "[expireOrder]: Order does not exist");
+    if (id >= nextOrderId) revert OrderDoesNotExist(id);
 
     Order storage order = orders[id];
-    require(order.deadline != 0 && order.deadline < block.timestamp, "[expireOrder]: Order has not yet expired");
-    require(order.status == OrderStatus.Active, "[expireOrder]: Order is not active");
+    if (order.deadline == 0 || order.deadline >= block.timestamp) revert OrderNotExpired(id);
+    if (order.status != OrderStatus.Active) revert OrderNotActive(id);
     order.status = OrderStatus.Expired;
 
     IERC20(order.tokenA).safeTransfer(order.creator, order.amountA);
