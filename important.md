@@ -44,3 +44,7 @@ require(s2, "[resolveOrder]: Error transfering tokenA to resolver");
 ```
 
 When working with ERC20 tokens, it's important to use the `SafeERC20` library from OpenZeppelin. This library provides a safer way to interact with ERC20 tokens by automatically checking the return value of transfer functions and reverting if the transfer fails. This helps to prevent issues where a token contract might not behave as expected, leading to unexpected state changes or loss of funds.
+
+## Require vs Revert with custom errors
+
+When we use `require` statements with custom error messages, we can provide more context about why a transaction failed. However, using custom errors (introduced in Solidity 0.8.4) is more gas-efficient than using `require` with strings, as it allows us to define specific error types that can be caught and handled by the calling contract or frontend.
