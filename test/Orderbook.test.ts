@@ -65,7 +65,7 @@ describe("Orderbook", async function () {
       { account: alice.account },
     );
 
-    await orderbook.write.resolveOrder([0n], { account: bob.account });
+    await orderbook.write.resolveOrder([0n, 100n], { account: bob.account });
 
     const aliceBalanceA = await tokenA.read.balanceOf([alice.account.address]);
     const aliceBalanceB = await tokenB.read.balanceOf([alice.account.address]);
@@ -97,7 +97,7 @@ describe("Orderbook", async function () {
     );
 
     await viem.assertions.revertWith(
-      orderbook.write.resolveOrder([0n], { account: alice.account }),
+      orderbook.write.resolveOrder([0n, 50n], { account: alice.account }),
       "[resolveOrder]: Cannot resolve own order",
     );
   });
@@ -118,10 +118,10 @@ describe("Orderbook", async function () {
       { account: alice.account },
     );
 
-    await orderbook.write.resolveOrder([0n], { account: bob.account });
+    await orderbook.write.resolveOrder([0n, 100n], { account: bob.account });
 
     await viem.assertions.revertWith(
-      orderbook.write.resolveOrder([0n], { account: bob.account }),
+      orderbook.write.resolveOrder([0n, 100n], { account: bob.account }),
       "[resolveOrder]: Order is not active",
     );
   });
@@ -205,5 +205,30 @@ describe("Orderbook", async function () {
       orderbook.write.expireOrder([0n], { account: alice.account }),
       "[expireOrder]: Order has not yet expired",
     );
+  });
+
+  it("partially resolves an order and updates remainingA", async () => {
+    const { tokenA, tokenB, orderbook } =
+      await networkHelpers.loadFixture(deployFixture);
+
+    await orderbook.write.createOrder(
+      [tokenA.address, tokenB.address, 100n, 150n, 0n],
+      { account: alice.account },
+    );
+
+    await orderbook.write.resolveOrder([0n, 50n], { account: bob.account });
+
+    const order = await orderbook.read.orders([0n]);
+    assert.equal(order[3], 50n);
+
+    const aliceBalanceA = await tokenA.read.balanceOf([alice.account.address]);
+    const aliceBalanceB = await tokenB.read.balanceOf([alice.account.address]);
+    const bobBalanceA = await tokenA.read.balanceOf([bob.account.address]);
+    const bobBalanceB = await tokenB.read.balanceOf([bob.account.address]);
+
+    assert.equal(aliceBalanceA, 900n);
+    assert.equal(aliceBalanceB, 75n);
+    assert.equal(bobBalanceA, 50n);
+    assert.equal(bobBalanceB, 925n);
   });
 });

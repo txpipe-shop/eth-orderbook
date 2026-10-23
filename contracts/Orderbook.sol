@@ -13,6 +13,7 @@ contract Orderbook {
     address creator;
     address tokenA;
     uint amountA;
+    uint remainingA;
     address tokenB;
     uint amountB;
     OrderStatus status;
@@ -43,6 +44,7 @@ contract Orderbook {
       msg.sender,
       tokenA,
       amountA,
+      amountA,
       tokenB,
       amountB,
       OrderStatus.Active,
@@ -64,23 +66,26 @@ contract Orderbook {
     emit CancelOrder(id, order.tokenA, order.tokenB, order.amountA, order.amountB);
   }
 
-  function resolveOrder(uint id) external {
+  function resolveOrder(uint id, uint fillAmountA) external {
     require(id < nextOrderId, "[resolveOrder]: Order does not exist");
 
     Order storage order = orders[id];
     require(order.status == OrderStatus.Active, "[resolveOrder]: Order is not active");
     require(order.creator != msg.sender, "[resolveOrder]: Cannot resolve own order");
-    require(order.deadline == 0 || order.deadline > block.timestamp, "[resolveOrder]: Order has expired");
+    require(order.deadline == 0 || order.deadline >= block.timestamp, "[resolveOrder]: Order has expired");
+    require(fillAmountA > 0 && fillAmountA <= order.remainingA, "[resolveOrder]: Invalid fill amount");
 
+    uint fillAmountB = (fillAmountA * order.amountB + order.amountA - 1) / order.amountA;
     uint tokenBBalance = IERC20(order.tokenB).balanceOf(msg.sender);
-    require(tokenBBalance >= order.amountB, "[resolveOrder]: Do not have enough balance");
+    require(tokenBBalance >= fillAmountB, "[resolveOrder]: Do not have enough balance");
 
     order.status = OrderStatus.Completed;
+    order.remainingA -= fillAmountA;
 
-    IERC20(order.tokenB).safeTransferFrom(msg.sender, order.creator, order.amountB);
-    IERC20(order.tokenA).safeTransfer(msg.sender, order.amountA);
+    IERC20(order.tokenB).safeTransferFrom(msg.sender, order.creator, fillAmountB);
+    IERC20(order.tokenA).safeTransfer(msg.sender, fillAmountA);
 
-    emit ResolveOrder(id, msg.sender, order.tokenA, order.tokenB, order.amountA, order.amountB);
+    emit ResolveOrder(id, msg.sender, order.tokenA, order.tokenB, fillAmountA, fillAmountB);
   }
 
   function expireOrder(uint id) external {
