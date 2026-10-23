@@ -22,7 +22,7 @@ contract Orderbook {
   }
 
   mapping(uint => Order) public orders;
-  uint nextOrderId = 0;
+  uint public nextOrderId = 0;
 
   event CreateOrder(uint id, address creator, address tokenA, address tokenB, uint amountA, uint amountB, uint deadline);
   event ResolveOrder(uint id, address resolver, address tokenA, address tokenB, uint amountA, uint amountB);
@@ -32,6 +32,9 @@ contract Orderbook {
   function createOrder(
     address tokenA, address tokenB, uint amountA, uint amountB, uint deadline
   ) external {
+    require(amountA > 0 && amountB > 0, "[createOrder]: amountA and amountB should be greater than zero");
+    require(tokenA != tokenB, "[createOrder]: Tokens to swap should be different");
+    require(tokenA != address(0) && tokenB != address(0), "[createOrder]: Token addresses should be different from address zero");
     require(deadline == 0 || deadline > block.timestamp, "[createOrder]: Deadline must be in the future or zero for no deadline");
 
     uint tokenABalance = IERC20(tokenA).balanceOf(msg.sender);
@@ -79,8 +82,10 @@ contract Orderbook {
     uint tokenBBalance = IERC20(order.tokenB).balanceOf(msg.sender);
     require(tokenBBalance >= fillAmountB, "[resolveOrder]: Do not have enough balance");
 
-    order.status = OrderStatus.Completed;
     order.remainingA -= fillAmountA;
+    if (order.remainingA == 0) {
+      order.status = OrderStatus.Completed;
+    }
 
     IERC20(order.tokenB).safeTransferFrom(msg.sender, order.creator, fillAmountB);
     IERC20(order.tokenA).safeTransfer(msg.sender, fillAmountA);
