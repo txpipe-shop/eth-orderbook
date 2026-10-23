@@ -40,10 +40,10 @@ contract Orderbook {
     uint tokenABalance = IERC20(tokenA).balanceOf(msg.sender);
     require(tokenABalance >= amountA, "[createOrder]: Do not have enough balance");
 
-    IERC20(tokenA).safeTransferFrom(msg.sender, address(this), amountA);
+    uint orderId = nextOrderId;
+    nextOrderId++;
 
-    emit CreateOrder(nextOrderId, msg.sender, tokenA, tokenB, amountA, amountB, deadline);
-    orders[nextOrderId] = Order(
+    orders[orderId] = Order(
       msg.sender,
       tokenA,
       amountA,
@@ -53,7 +53,9 @@ contract Orderbook {
       OrderStatus.Active,
       deadline
     );
-    nextOrderId++;
+    emit CreateOrder(orderId, msg.sender, tokenA, tokenB, amountA, amountB, deadline);
+
+    IERC20(tokenA).safeTransferFrom(msg.sender, address(this), amountA);
   }
 
   function cancelOrder(uint id) external {
