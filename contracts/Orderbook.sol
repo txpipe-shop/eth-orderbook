@@ -49,10 +49,10 @@ contract Orderbook {
   mapping(uint => Order) public orders;
   uint public nextOrderId = 0;
 
-  event CreateOrder(uint id, address creator, address tokenA, address tokenB, uint amountA, uint amountB, uint deadline);
-  event ResolveOrder(uint id, address resolver, address tokenA, address tokenB, uint amountA, uint amountB);
-  event CancelOrder(uint id, address tokenA, address tokenB, uint amountA, uint amountB);
-  event ExpireOrder(uint id, address tokenA, address tokenB, uint amountA, uint amountB);
+  event CreateOrder(uint id, address indexed creator, address indexed tokenA, address indexed tokenB, uint amountA, uint amountB, uint deadline);
+  event ResolveOrder(uint id, address indexed resolver, address indexed tokenA, address indexed tokenB, uint amountA, uint amountB);
+  event CancelOrder(uint id, address indexed tokenA, address indexed tokenB, uint amountA, uint amountB);
+  event ExpireOrder(uint id, address indexed tokenA, address indexed tokenB, uint amountA, uint amountB);
 
   function createOrder(
     address tokenA, address tokenB, uint amountA, uint amountB, uint deadline
